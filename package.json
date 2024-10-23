@@ -1,7 +1,7 @@
 {
-  "name": "geocleanup",
+  "name": "geoclean",
   "version": "0.0.1",
-  "description": "xxx",
+  "description": "Some tools to clean geoJSONs",
   "main": "src/index.js",
   "module": "src/index.js",
   "jsdelivr": "dist/index.min.js",
@@ -21,7 +21,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/neocarto/gridgeo.git"
+    "url": "git+https://github.com/neocarto/geoclean.git"
   },
   "keywords": [
     "xxx",
@@ -31,9 +31,9 @@
   "author": "Nicolas Lambert",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/neocarto/geocleanup/issues"
+    "url": "https://github.com/neocarto/geoclean/issues"
   },
-  "homepage": "https://github.com/neocarto/geocleanup#readme",
+  "homepage": "https://github.com/neocarto/geoclean#readme",
   "dependencies": {
     "geos-wasm": "^2.0.0",
     "rollup": "^4.10.0"
