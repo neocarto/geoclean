@@ -35,6 +35,7 @@
   },
   "homepage": "https://github.com/neocarto/geocleanup#readme",
   "dependencies": {
+    "geos-wasm": "^2.0.0",
     "rollup": "^4.10.0"
   },
   "devDependencies": {

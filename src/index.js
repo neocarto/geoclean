@@ -1,1 +1,2 @@
-export { test } from "./test.js";
+export { rewind } from "./rewind.js";
+export { makevalid } from "./makevalid.js";
