@@ -1,46 +1,139 @@
-/**
- * Rewind a FeatureCollection counterclockwise and inner rings.
- * Adapted from MapBox geojson-rewind code (https://github.com/mapbox/grojson-rewind) under ISC license
- * @param {object} x - a FeatureCollection
- * @param {object} options - Optional parameters
- * @param {boolean} [options.outer=true] - Rewind Rings Outer
- * @param {boolean} [options.mutate=true] - Mutate the Input geoJSON
- * @returns {{features: {geometry: {}, type: string, properties: {}}[], type: string}} - The resulting GeoJSON FeatureCollection
- *
- */
+import { geoContains, geoArea, geoStream, geoTransform } from "d3-geo";
 
-export function rewind(x, options = {}) {
-  let outer = options.outer === false ? false : true;
-  let mutate = options.mutate === false ? false : true;
-  let geo = mutate === true ? x : JSON.parse(JSON.stringify(x));
-  for (let i = 0; i < geo.features.length; i++) {
-    if (geo.features[i].geometry.type === "Polygon") {
-      rewindRings(geo.features[i].geometry.coordinates, outer);
-    } else if (geo.features[i].geometry.type === "MultiPolygon") {
-      for (let j = 0; j < geo.features[i].geometry.coordinates.length; j++) {
-        rewindRings(geo.features[i].geometry.coordinates[j], outer);
+// Based on https://observablehq.com/@fil/rewind
+// Copyright 2023 Philippe Rivière
+// ISC LIcence
+
+// a simple duck test for projections and GeoJSON
+export function rewind(duck, simple = true) {
+  return duck?.stream
+    ? geoRewindProjection(duck, simple)
+    : duck?.type
+    ? geoRewindFeature(duck, simple)
+    : Array.isArray(duck)
+    ? Array.from(duck, (d) => rewind(d, simple))
+    : duck;
+}
+
+const geoRewindFeature = (feature, simple) =>
+  geoProjectSimple(feature, geoRewindStream(simple));
+
+function geoRewindStream(simple = true) {
+  let ring, polygon;
+  return geoTransform({
+    polygonStart() {
+      this.stream.polygonStart();
+      polygon = [];
+    },
+    lineStart() {
+      if (polygon) polygon.push((ring = []));
+      else this.stream.lineStart();
+    },
+    lineEnd() {
+      if (!polygon) this.stream.lineEnd();
+    },
+    point(x, y) {
+      if (polygon) ring.push([x, y]);
+      else this.stream.point(x, y);
+    },
+    polygonEnd() {
+      for (let [i, ring] of polygon.entries()) {
+        ring.push(ring[0].slice());
+        if (
+          i
+            ? // a hole must contain the first point of the polygon
+              !geoContains(
+                { type: "Polygon", coordinates: [ring] },
+                polygon[0][0]
+              )
+            : polygon[1]
+            ? // the outer ring must contain the first point of its first hole (if any)
+              !geoContains(
+                { type: "Polygon", coordinates: [ring] },
+                polygon[1][0]
+              )
+            : // a single ring polygon must be smaller than a hemisphere (optional)
+              simple &&
+              geoArea({ type: "Polygon", coordinates: [ring] }) > 2 * Math.PI
+        ) {
+          ring.reverse();
+        }
+
+        this.stream.lineStart();
+        ring.pop();
+        for (const [x, y] of ring) this.stream.point(x, y);
+        this.stream.lineEnd();
       }
-    }
-  }
-  return geo;
+      this.stream.polygonEnd();
+      polygon = null;
+    },
+  });
 }
 
-function rewindRings(rings, outer) {
-  if (rings.length === 0) return;
-  rewindRing(rings[0], outer);
-  for (let i = 1; i < rings.length; i++) {
-    rewindRing(rings[i], !outer);
+const geoProjectSimple = function (object, projection) {
+  const stream = projection.stream;
+  let project;
+  if (!stream) throw new Error("invalid projection");
+  switch (object && object.type) {
+    case "Feature":
+      project = projectFeature;
+      break;
+    case "FeatureCollection":
+      project = projectFeatureCollection;
+      break;
+    default:
+      project = projectGeometry;
+      break;
   }
+  return project(object, stream);
+};
+
+function projectFeatureCollection(o, stream) {
+  return { ...o, features: o.features.map((f) => projectFeature(f, stream)) };
 }
 
-function rewindRing(ring, dir) {
-  let tArea = 0;
-  let err = 0;
-  for (let i = 0, len = ring.length, j = len - 1; i < len; j = i++) {
-    const k = (ring[i][0] - ring[j][0]) * (ring[j][1] + ring[i][1]);
-    const m = tArea + k;
-    err += Math.abs(tArea) >= Math.abs(k) ? tArea - m + k : k - m + tArea;
-    tArea = m;
-  }
-  if (tArea + err >= 0 !== !!dir) ring.reverse();
+function projectFeature(o, stream) {
+  return { ...o, geometry: projectGeometry(o.geometry, stream) };
+}
+
+function projectGeometryCollection(o, stream) {
+  return {
+    ...o,
+    geometries: o.geometries.map((o) => projectGeometry(o, stream)),
+  };
+}
+
+function projectGeometry(o, stream) {
+  return !o
+    ? null
+    : o.type === "GeometryCollection"
+    ? projectGeometryCollection(o, stream)
+    : o.type === "Polygon" || o.type === "MultiPolygon"
+    ? projectPolygons(o, stream)
+    : o;
+}
+
+function projectPolygons(o, stream) {
+  let coordinates = [];
+  let polygon, line;
+  geoStream(
+    o,
+    stream({
+      polygonStart() {
+        coordinates.push((polygon = []));
+      },
+      polygonEnd() {},
+      lineStart() {
+        polygon.push((line = []));
+      },
+      lineEnd() {
+        line.push(line[0].slice());
+      },
+      point(x, y) {
+        line.push([x, y]);
+      },
+    })
+  );
+  if (o.type === "Polygon") coordinates = coordinates[0];
+  return { ...o, coordinates, rewind: true };
 }
