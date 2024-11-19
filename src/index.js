@@ -1,3 +1,4 @@
 export { rewind } from "./rewind.js";
-export { rewind2 } from "./rewind2.js";
 export { makevalid } from "./makevalid.js";
+export { isvalid } from "./isvalid.js";
+export { solveemptygeom } from "./helpers/solveemptygeom.js";

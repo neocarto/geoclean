@@ -1,3 +1,5 @@
+import { solveemptygeom } from "./solveemptygeom.js";
+
 /**
  * Wrap a GeoJSON object in a FeatureCollection.
  * It accepts:
@@ -13,10 +15,12 @@
  * @returns {{features: [{geometry:{}, type: string, properties: {}}], type: string}}
  */
 export function featurecollection(x) {
+  let result;
+
   x = JSON.parse(JSON.stringify(x));
   // FeatureCollection
   if (x?.type == "FeatureCollection" && !Array.isArray(x)) {
-    return x;
+    result = x;
   }
 
   // Features
@@ -26,7 +30,7 @@ export function featurecollection(x) {
     x[0]?.["properties"] != undefined &&
     x[0]?.["geometry"] != undefined
   ) {
-    return { type: "FeatureCollection", features: x };
+    result = { type: "FeatureCollection", features: x };
   }
   // Array of geometries
   else if (
@@ -34,7 +38,7 @@ export function featurecollection(x) {
     x[0]?.["type"] != undefined &&
     x[0]?.["coordinates"] != undefined
   ) {
-    return {
+    result = {
       type: "FeatureCollection",
       features: x.map((d) => ({
         type: "Feature",
@@ -55,18 +59,21 @@ export function featurecollection(x) {
       "MultiPolygon",
     ].includes(x?.type)
   ) {
-    return {
+    result = {
       type: "FeatureCollection",
       features: [{ type: "Feature", properties: {}, geometry: x }],
     };
   }
   // Single feature
   else if (typeof x == "object" && x?.type == "Feature") {
-    return {
+    result = {
       type: "FeatureCollection",
       features: [x],
     };
   } else {
-    return undefined;
+    result = undefined;
   }
+
+  //return result;
+  return solveemptygeom(result);
 }
