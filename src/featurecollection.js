@@ -1,4 +1,4 @@
-import { solveemptygeom } from "./solveemptygeom.js";
+import { solveemptygeom } from "./helpers/solveemptygeom.js";
 
 /**
  * Wrap a GeoJSON object in a FeatureCollection.

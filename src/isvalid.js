@@ -1,6 +1,6 @@
 import initGeosJs from "geos-wasm";
 import { geojsonToGeosGeom } from "geos-wasm/helpers";
-import { featurecollection } from "./helpers/featurecollection.js";
+import { featurecollection } from "./featurecollection.js";
 
 /**
  * This function tests the validity of the geometry. This is an implementation of the GEOSisValid function in the `geos-wasm` library.  It returns an array of strings.
