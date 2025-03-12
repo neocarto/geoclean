@@ -1,44 +1,29 @@
-import { solveemptygeom } from "./helpers/solveemptygeom.js";
+import { feature } from "topojson-client";
+const topojson = Object.assign({}, { feature });
+import { table2geo } from "./helpers/table2geo";
 
-/**
- * Wrap a GeoJSON object in a FeatureCollection.
- * It accepts:
- * - a single Feature
- * - a single Geometry
- * - an array of Features
- * - an array of Geometries
- *
- * If the GeoJSON object is already a FeatureCollection, it is returned as-is.
-
- *
- * @param {object} x - The GeoJSON object(s) to wrap in a FeatureCollection
- * @returns {{features: [{geometry:{}, type: string, properties: {}}], type: string}}
- */
-export function featurecollection(x) {
-  let result;
-
-  x = JSON.parse(JSON.stringify(x));
-  // FeatureCollection
-  if (x?.type == "FeatureCollection" && !Array.isArray(x)) {
-    result = x;
-  }
-
-  // Features
-  else if (
-    Array.isArray(x) &&
-    x[0]?.["type"] != undefined &&
-    x[0]?.["properties"] != undefined &&
-    x[0]?.["geometry"] != undefined
-  ) {
-    result = { type: "FeatureCollection", features: x };
-  }
-  // Array of geometries
-  else if (
-    Array.isArray(x) &&
-    x[0]?.["type"] != undefined &&
-    x[0]?.["coordinates"] != undefined
-  ) {
-    result = {
+export function featurecollection(
+  input,
+  {
+    lat = undefined,
+    lon = undefined,
+    coords = undefined,
+    reverse = false,
+    properties = undefined,
+  } = {}
+) {
+  let x = JSON.parse(JSON.stringify(input));
+  if (isFeatureCollection(x)) {
+    return x;
+  } else if (isTopology(x)) {
+    console.log("TOPO");
+    x = topojson.feature(x, Object.keys(x.objects)[0]);
+  } else if (isFeatures(x)) {
+    x = { type: "Feature", features: x };
+  } else if (isFeature(x)) {
+    x = { type: "Feature", features: [x] };
+  } else if (isGeometries(x)) {
+    x = {
       type: "FeatureCollection",
       features: x.map((d) => ({
         type: "Feature",
@@ -46,34 +31,175 @@ export function featurecollection(x) {
         geometry: d,
       })),
     };
-  }
-  // Single geometry
-  else if (
-    typeof x == "object" &&
-    [
-      "Point",
-      "LineString",
-      "Polygon",
-      "MultiPoint",
-      "MultiLineString",
-      "MultiPolygon",
-    ].includes(x?.type)
-  ) {
-    result = {
-      type: "FeatureCollection",
+  } else if (isGeometry(x)) {
+    x = {
+      type: "Feature",
       features: [{ type: "Feature", properties: {}, geometry: x }],
     };
-  }
-  // Single feature
-  else if (typeof x == "object" && x?.type == "Feature") {
-    result = {
+  } else if (isArrayOfObjects(x)) {
+    x = table2geo(x, lat, lon, coords, reverse);
+  } else if (isArrayOfCoords(x)) {
+    x = {
       type: "FeatureCollection",
-      features: [x],
+      features: x.map((d) => ({
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "Point",
+          coordinates: reverse
+            ? [parseFloat(d[1]), parseFloat(d[0])]
+            : [parseFloat(d[0]), parseFloat(d[1])],
+        },
+      })),
     };
-  } else {
-    result = undefined;
+  } else if (isTwoValues(x)) {
+    x = {
+      type: "FeatureCollection",
+      fetaures: [
+        {
+          type: "Feature",
+          properties: {},
+          geometry: { type: "Point", coordinates: x },
+        },
+      ],
+    };
   }
 
-  //return result;
-  return solveemptygeom(result);
+  // Select properties
+
+  if (properties != undefined && Array.isArray(properties)) {
+    x.features.forEach((d) => {
+      d.properties = Object.fromEntries(
+        properties.map((k) => [k, d?.properties[k]])
+      );
+    });
+  }
+
+  // Output
+  return x;
+}
+
+// Helpers
+
+function isFeatureCollection(x) {
+  if (
+    !Array.isArray(x) &&
+    x?.type == "FeatureCollection" &&
+    Array.isArray(x?.features) &&
+    x?.features[0]?.hasOwnProperty("type") &&
+    x?.features[0]?.hasOwnProperty("properties") &&
+    x?.features[0]?.hasOwnProperty("geometry")
+  ) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function isTopology(x) {
+  if (x?.type == "Topology" && !Array.isArray(x)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function isFeatures(x) {
+  if (
+    Array.isArray(x) &&
+    x.length > 0 &&
+    x[0]?.hasOwnProperty("type") &&
+    x[0]?.hasOwnProperty("properties") &&
+    x[0]?.hasOwnProperty("geometry")
+  ) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function isFeature(x) {
+  if (
+    typeof x === "object" &&
+    !Array.isArray(x) &&
+    x !== null &&
+    x?.hasOwnProperty("type") &&
+    x?.hasOwnProperty("properties") &&
+    x?.hasOwnProperty("geometry")
+  ) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function isGeometries(x) {
+  if (
+    Array.isArray(x) &&
+    x.length > 0 &&
+    x[0]?.hasOwnProperty("type") &&
+    x[0]?.hasOwnProperty("coordinates")
+  ) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function isGeometry(x) {
+  if (
+    typeof x === "object" &&
+    !Array.isArray(x) &&
+    x !== null &&
+    x?.hasOwnProperty("type") &&
+    x?.hasOwnProperty("coordinates")
+  ) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function isArrayOfObjects(x) {
+  if (
+    Array.isArray(x) &&
+    !Array.isArray(x[0]) &&
+    x.length > 0 &&
+    typeof x[0] === "object"
+  ) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function isArrayOfCoords(x) {
+  if (
+    Array.isArray(x) &&
+    x[0].length == 2 &&
+    Array.isArray(x[0]) &&
+    typeof x[0][0] !== "object" &&
+    typeof x[0][1] !== "object"
+  ) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function isTwoValues(x) {
+  if (Array.isArray(x) && x.length == 2 && isNumber(x[0]) && isNumber(x[1])) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function isNumber(value) {
+  return (
+    value !== null &&
+    value !== "" &&
+    typeof value !== "boolean" &&
+    isFinite(value)
+  );
 }

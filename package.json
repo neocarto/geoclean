@@ -36,7 +36,8 @@
   "homepage": "https://github.com/neocarto/geoclean#readme",
   "dependencies": {
     "geos-wasm": "^2.0.0",
-    "rollup": "^4.10.0"
+    "rollup": "^4.10.0",
+    "topojson-client": "^3.1.0"
   },
   "devDependencies": {
     "@jood/jsdoc-theme": "^0.1.14",
