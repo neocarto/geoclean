@@ -7,11 +7,20 @@ export function featurecollection(
   {
     lat = undefined,
     lon = undefined,
+    latitude = undefined,
+    longitude = undefined,
     coords = undefined,
+    coordinates = undefined,
     reverse = false,
     properties = undefined,
+    rename = undefined,
+    filter = undefined,
   } = {}
 ) {
+  lat = lat || latitude;
+  lon = lon || longitude;
+  coords = coords || coordinates;
+
   let x = JSON.parse(JSON.stringify(input));
   if (isFeatureCollection(x)) {
     return x;
@@ -65,14 +74,33 @@ export function featurecollection(
     };
   }
 
-  // Select properties
+  // Filter
+  if (filter != undefined && typeof filter == "function") {
+    x.features = x.features.filter(filter);
+  }
 
   if (properties != undefined && Array.isArray(properties)) {
-    x.features.forEach((d) => {
-      d.properties = Object.fromEntries(
-        properties.map((k) => [k, d?.properties[k]])
-      );
-    });
+    // Rename ?
+    if (
+      rename != undefined &&
+      Array.isArray(rename) &&
+      rename.length == properties.length
+    ) {
+      // Select and rename properties
+      const fields = properties.map((d, i) => [d, rename[i]]);
+      x.features.forEach((d) => {
+        d.properties = Object.fromEntries(
+          fields.map((k) => [k[1], d?.properties[k[0]]])
+        );
+      });
+    } else {
+      // Select properties
+      x.features.forEach((d) => {
+        d.properties = Object.fromEntries(
+          properties.map((k) => [k, d?.properties[k]])
+        );
+      });
+    }
   }
 
   // Output

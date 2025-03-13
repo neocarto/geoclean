@@ -6,3 +6,4 @@ export { resolveempty } from "./resolveempty.js";
 export { removeempty } from "./removeempty.js";
 export { geoimport } from "./geoimport.js";
 export { dissolve } from "./dissolve.js";
+export { simplify } from "./simplify.js";
